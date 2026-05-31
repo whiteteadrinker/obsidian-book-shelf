@@ -6,7 +6,6 @@ import { scanAndImport } from './scanner/bookScanner';
 import { lookupBookOnline } from './metadata/onlineLookup';
 
 import { DashboardView, DASHBOARD_VIEW_TYPE, ManualAddBookModal } from './views/dashboardView';
-import { BookshelfSidebarView, BOOKSHELF_VIEW_TYPE } from './views/bookshelfSidebar';
 import { ReaderPanelView, READER_VIEW_TYPE } from './views/readerPanel';
 import { createBookNote, ensureBookNote } from './notes/noteManager';
 
@@ -25,9 +24,8 @@ export default class BookShelfPlugin extends Plugin {
         // 注册设置页
         this.addSettingTab(new BookShelfSettingTab(this.app, this));
 
-        // 注册视图
+        // 注册视图（统一使用仪表盘视图，支持看板/列表/网格切换）
         this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
-        this.registerView(BOOKSHELF_VIEW_TYPE, (leaf) => new BookshelfSidebarView(leaf, this));
         this.registerView(READER_VIEW_TYPE, (leaf) => new ReaderPanelView(leaf, this));
 
         // 注册命令
@@ -204,21 +202,12 @@ export default class BookShelfPlugin extends Plugin {
     // === 命令注册 ===
 
     private registerCommands(): void {
-        // 打开仪表盘
-        this.addCommand({
-            id: 'open-dashboard',
-            name: '📊 打开书库仪表盘',
-            callback: () => {
-                this.activateView(DASHBOARD_VIEW_TYPE);
-            },
-        });
-
-        // 打开书库侧边栏
+        // 打开书库（统一入口）
         this.addCommand({
             id: 'open-bookshelf',
-            name: '📚 打开书库列表',
+            name: '📚 打开书库',
             callback: () => {
-                this.activateView(BOOKSHELF_VIEW_TYPE);
+                this.activateView(DASHBOARD_VIEW_TYPE);
             },
         });
 
@@ -237,11 +226,9 @@ export default class BookShelfPlugin extends Plugin {
             name: '➕ 手动添加书籍',
             callback: () => {
                 new ManualAddBookModal(this.app, this, () => {
-                    // 刷新仪表盘视图
                     const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);
                     for (const leaf of leaves) {
-                        const view = leaf.view as DashboardView;
-                        view.render();
+                        (leaf.view as DashboardView).render();
                     }
                 }).open();
             },
