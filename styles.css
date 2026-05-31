@@ -1,0 +1,485 @@
+/* === BookShelf Plugin Styles === */
+
+/* ===== Dashboard View ===== */
+.bookshelf-dashboard {
+    padding: 16px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.bookshelf-dashboard-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.bookshelf-dashboard-header h2 {
+    margin: 0 0 8px 0;
+}
+
+.bookshelf-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.bookshelf-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: var(--background-secondary);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.bookshelf-stat .count {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text-accent);
+}
+
+/* Dashboard Kanban Columns */
+.bookshelf-kanban {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    min-height: 400px;
+}
+
+.bookshelf-column {
+    background: var(--background-secondary);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.bookshelf-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--background-modifier-border);
+}
+
+.bookshelf-column-header h3 {
+    margin: 0;
+    font-size: 15px;
+}
+
+.bookshelf-column-count {
+    background: var(--background-modifier-border);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.bookshelf-column-body {
+    flex: 1;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bookshelf-column-body.drag-over {
+    background: var(--background-modifier-hover);
+    border-radius: 6px;
+    outline: 2px dashed var(--text-accent);
+}
+
+/* Book Cards */
+.bookshelf-book-card {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: var(--background-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.15s;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.bookshelf-book-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.bookshelf-book-card.dragging {
+    opacity: 0.5;
+}
+
+.bookshelf-book-cover {
+    width: 48px;
+    height: 68px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--background-modifier-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--text-muted);
+}
+
+.bookshelf-book-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.bookshelf-book-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.bookshelf-book-title {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bookshelf-book-author {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bookshelf-book-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-faint);
+}
+
+.bookshelf-status-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.bookshelf-status-tag.unread {
+    background: var(--color-blue);
+    color: white;
+}
+
+.bookshelf-status-tag.reading {
+    background: var(--color-orange);
+    color: white;
+}
+
+.bookshelf-status-tag.finished {
+    background: var(--color-green);
+    color: white;
+}
+
+/* Progress bar */
+.bookshelf-progress-bar {
+    height: 3px;
+    background: var(--background-modifier-border);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.bookshelf-progress-fill {
+    height: 100%;
+    background: var(--text-accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+/* ===== Sidebar View ===== */
+.bookshelf-sidebar {
+    padding: 8px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.bookshelf-sidebar-search {
+    margin-bottom: 8px;
+}
+
+.bookshelf-sidebar-search input {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-normal);
+}
+
+.bookshelf-sidebar-filters {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.bookshelf-filter-btn {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+}
+
+.bookshelf-filter-btn.active {
+    background: var(--text-accent);
+    color: white;
+    border-color: var(--text-accent);
+}
+
+.bookshelf-sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Layout toggle */
+.bookshelf-layout-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.bookshelf-layout-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    font-size: 14px;
+}
+
+.bookshelf-layout-btn.active {
+    background: var(--text-accent);
+    border-color: var(--text-accent);
+}
+
+/* Grid Layout */
+.bookshelf-sidebar-list.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.bookshelf-sidebar-list.grid .bookshelf-book-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.bookshelf-sidebar-list.grid .bookshelf-book-cover {
+    width: 100px;
+    height: 140px;
+}
+
+/* ===== Reader Panel ===== */
+.bookshelf-reader {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.bookshelf-reader-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
+}
+
+.bookshelf-reader-toolbar button {
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-normal);
+}
+
+.bookshelf-reader-toolbar button:hover {
+    background: var(--background-modifier-hover);
+}
+
+.bookshelf-reader-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* EPUB Reader */
+.bookshelf-epub-content {
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: var(--bookshelf-font-size, 16px);
+    line-height: 1.8;
+    color: var(--text-normal);
+}
+
+.bookshelf-epub-content.light {
+    background: #fff;
+    color: #333;
+}
+
+.bookshelf-epub-content.dark {
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+.bookshelf-epub-content.sepia {
+    background: #f4ecd8;
+    color: #5b4636;
+}
+
+/* PDF Reader */
+.bookshelf-pdf-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bookshelf-pdf-page {
+    margin-bottom: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bookshelf-pdf-page canvas {
+    display: block;
+}
+
+/* Chapter Navigation */
+.bookshelf-toc {
+    padding: 16px;
+    border-right: 1px solid var(--background-modifier-border);
+    height: 100%;
+    overflow-y: auto;
+}
+
+.bookshelf-toc-item {
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.bookshelf-toc-item:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.bookshelf-toc-item.active {
+    background: var(--text-accent);
+    color: white;
+}
+
+.bookshelf-toc-item.is-sub {
+    padding-left: 24px;
+    font-size: 12px;
+}
+
+/* Annotation Popup */
+.bookshelf-annotation-popup {
+    position: absolute;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    padding: 4px;
+    z-index: 1000;
+    display: flex;
+    gap: 2px;
+}
+
+.bookshelf-annotation-popup button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-normal);
+}
+
+.bookshelf-annotation-popup button:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* Highlight styles */
+.bookshelf-highlight {
+    background-color: rgba(255, 212, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 212, 0, 0.6);
+    cursor: pointer;
+}
+
+.bookshelf-highlight.with-note {
+    background-color: rgba(100, 180, 255, 0.3);
+    border-bottom: 1px solid rgba(100, 180, 255, 0.6);
+}
+
+/* ===== Manual Add Book Modal ===== */
+.bookshelf-manual-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bookshelf-manual-add-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.bookshelf-manual-add-form input,
+.bookshelf-manual-add-form textarea {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-normal);
+}
+
+.bookshelf-manual-add-form textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+    .bookshelf-kanban {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== Dark theme overrides ===== */
+.theme-dark .bookshelf-book-card {
+    border-color: var(--background-modifier-border);
+}
+
+.theme-dark .bookshelf-book-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
