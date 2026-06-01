@@ -1,6 +1,6 @@
 import { Vault, TFile, normalizePath } from 'obsidian';
 import { sanitizeFileName, ensureDirectory } from '../utils/fileUtils';
-import type { BookMeta, BookShelfSettings } from '../types';
+import type { BookAnnotation, BookMeta, BookShelfSettings } from '../types';
 
 /**
  * 为书籍创建笔记文件
@@ -128,9 +128,9 @@ export async function appendHighlightsToNote(
     try {
         let content = await vault.read(file);
 
-        // 确保有「摘录与标注」章节
-        if (!content.includes('## 📌 摘录与标注')) {
-            content += '\n\n## 📌 摘录与标注\n\n';
+        // 确保有「摘录与批注」章节
+        if (!hasAnnotationSection(content)) {
+            content += '\n\n## 📌 摘录与批注\n\n';
         }
 
         // 追加新标注
@@ -154,6 +154,46 @@ export async function appendHighlightsToNote(
         await vault.modify(file, content);
     } catch (error) {
         console.error(`Failed to append highlights to ${notePath}:`, error);
+    }
+}
+
+/**
+ * 将摘录/批注追加到笔记文件，使用 HTML marker 避免重复写入。
+ */
+export async function appendAnnotationsToNote(
+    vault: Vault,
+    notePath: string,
+    annotations: BookAnnotation[]
+): Promise<void> {
+    const file = vault.getAbstractFileByPath(notePath);
+    if (!(file instanceof TFile) || annotations.length === 0) return;
+
+    try {
+        let content = await vault.read(file);
+        if (!hasAnnotationSection(content)) {
+            content += '\n\n## 📌 摘录与批注\n\n';
+        }
+
+        let newSection = '';
+        for (const annotation of annotations) {
+            const marker = `<!-- bookshelf-annotation:${annotation.id} -->`;
+            if (content.includes(marker) || newSection.includes(marker)) continue;
+
+            newSection += `\n${marker}\n`;
+            newSection += `> ${escapeBlockquote(annotation.text)}\n\n`;
+            newSection += `- 位置: ${annotation.location || '未知位置'}\n`;
+            newSection += `- 时间: ${formatDate(annotation.createdAt)}\n`;
+            if (annotation.note) {
+                newSection += `- 批注: ${annotation.note.replace(/\n/g, ' ')}\n`;
+            }
+            newSection += '\n---\n';
+        }
+
+        if (newSection) {
+            await vault.modify(file, content + newSection);
+        }
+    } catch (error) {
+        console.error(`Failed to append annotations to ${notePath}:`, error);
     }
 }
 
@@ -205,6 +245,17 @@ function formatDate(isoString: string): string {
     } catch {
         return isoString;
     }
+}
+
+function hasAnnotationSection(content: string): boolean {
+    return content.includes('## 📌 摘录与批注') || content.includes('## 📌 摘录与标注');
+}
+
+function escapeBlockquote(text: string): string {
+    return text
+        .split('\n')
+        .map(line => line ? line.replace(/^>/, '\\>') : ' ')
+        .join('\n> ');
 }
 
 /**

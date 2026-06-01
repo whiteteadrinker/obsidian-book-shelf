@@ -1,25 +1,27 @@
 import { Plugin, Notice } from 'obsidian';
 import { BookShelfSettingTab } from './settings';
 import { DEFAULT_SETTINGS } from './types';
-import type { BookShelfSettings, BookShelfPluginData, BookMeta } from './types';
+import type { BookShelfSettings, BookShelfPluginData, BookMeta, BookAnnotation, BookshelfViewMode } from './types';
 import { scanAndImport } from './scanner/bookScanner';
 import { lookupBookOnline } from './metadata/onlineLookup';
 
 import { DashboardView, DASHBOARD_VIEW_TYPE, ManualAddBookModal } from './views/dashboardView';
 import { ReaderPanelView, READER_VIEW_TYPE } from './views/readerPanel';
-import { createBookNote, ensureBookNote } from './notes/noteManager';
+import { appendAnnotationsToNote, createBookNote, ensureBookNote, updateNoteFrontmatter } from './notes/noteManager';
 
 export default class BookShelfPlugin extends Plugin {
     settings!: BookShelfSettings;
     books: BookMeta[] = [];
+    annotations: BookAnnotation[] = [];
 
     async onload(): Promise<void> {
         console.log('📚 BookShelf plugin loading...');
 
         // 加载数据
         const data = await this.loadData() as BookShelfPluginData | null;
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, data?.settings);
+        this.settings = this.migrateSettings(data?.settings);
         this.books = data?.books ?? [];
+        this.annotations = data?.annotations ?? [];
 
         // 注册设置页
         this.addSettingTab(new BookShelfSettingTab(this.app, this));
@@ -53,8 +55,18 @@ export default class BookShelfPlugin extends Plugin {
         const data: BookShelfPluginData = {
             settings: this.settings,
             books: this.books,
+            annotations: this.annotations,
         };
         await super.saveData(data);
+    }
+
+    private migrateSettings(saved?: Partial<BookShelfSettings> | null): BookShelfSettings {
+        const legacy = saved as Partial<BookShelfSettings> & { defaultView?: string } | undefined;
+        const defaultViewMode = (legacy?.defaultViewMode
+            || (legacy?.defaultView === 'sidebar' ? 'list' : 'kanban')) as BookshelfViewMode;
+        const migrated = Object.assign({}, DEFAULT_SETTINGS, saved, { defaultViewMode }) as BookShelfSettings & { defaultView?: string };
+        delete migrated.defaultView;
+        return migrated;
     }
 
     // === 书籍管理方法 ===
@@ -76,13 +88,29 @@ export default class BookShelfPlugin extends Plugin {
         if (book) {
             Object.assign(book, updates);
             await this.savePluginData();
+            if (book.notePath) {
+                await updateNoteFrontmatter(this.app.vault, book.notePath, book);
+            }
         }
     }
 
     /** 删除书籍 */
     async removeBook(id: string): Promise<void> {
         this.books = this.books.filter(b => b.id !== id);
+        this.annotations = this.annotations.filter(a => a.bookId !== id);
         await this.savePluginData();
+    }
+
+    /** 确保书籍有关联笔记 */
+    async ensureBookHasNote(id: string): Promise<string> {
+        const book = this.getBook(id);
+        if (!book) return '';
+        const notePath = await ensureBookNote(this.app.vault, book, this.settings);
+        if (notePath && book.notePath !== notePath) {
+            book.notePath = notePath;
+            await this.savePluginData();
+        }
+        return notePath;
     }
 
     /** 更新阅读状态 */
@@ -91,6 +119,12 @@ export default class BookShelfPlugin extends Plugin {
         if (status === 'finished') {
             updates.dateFinished = new Date().toISOString();
             updates.readingProgress = 100;
+        } else {
+            updates.dateFinished = '';
+            if (status === 'unread') {
+                updates.readingProgress = 0;
+                updates.currentPosition = 0;
+            }
         }
         await this.updateBook(id, updates);
     }
@@ -112,6 +146,49 @@ export default class BookShelfPlugin extends Plugin {
             updates.dateFinished = new Date().toISOString();
         }
         await this.updateBook(id, updates);
+    }
+
+    /** 保存摘录/批注并同步到书籍笔记 */
+    async addAnnotation(annotation: Omit<BookAnnotation, 'id' | 'createdAt'>): Promise<BookAnnotation | null> {
+        const book = this.getBook(annotation.bookId);
+        if (!book) return null;
+
+        const normalizedText = annotation.text.replace(/\s+/g, ' ').trim();
+        const normalizedNote = annotation.note.trim();
+        if (!normalizedText) return null;
+
+        const duplicate = this.annotations.find(a =>
+            a.bookId === annotation.bookId &&
+            a.text.replace(/\s+/g, ' ').trim() === normalizedText &&
+            a.note.trim() === normalizedNote &&
+            a.location === annotation.location
+        );
+        if (duplicate) {
+            new Notice('这条摘录已经保存过了');
+            return duplicate;
+        }
+
+        const saved: BookAnnotation = {
+            ...annotation,
+            text: normalizedText,
+            note: normalizedNote,
+            id: `ann-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`,
+            createdAt: new Date().toISOString(),
+        };
+
+        const notePath = await ensureBookNote(this.app.vault, book, this.settings);
+        if (notePath && book.notePath !== notePath) {
+            book.notePath = notePath;
+        }
+
+        this.annotations.push(saved);
+        await this.savePluginData();
+
+        if (notePath) {
+            await appendAnnotationsToNote(this.app.vault, notePath, [saved]);
+        }
+
+        return saved;
     }
 
     // === 视图激活 ===
@@ -205,7 +282,7 @@ export default class BookShelfPlugin extends Plugin {
         // 打开书库（统一入口）
         this.addCommand({
             id: 'open-bookshelf',
-            name: '📚 打开书库',
+            name: 'Open library',
             callback: () => {
                 this.activateView(DASHBOARD_VIEW_TYPE);
             },
@@ -214,7 +291,7 @@ export default class BookShelfPlugin extends Plugin {
         // 扫描书籍
         this.addCommand({
             id: 'scan-books',
-            name: '🔍 扫描书籍目录',
+            name: 'Scan book folders',
             callback: async () => {
                 await this.scanBooks();
             },
@@ -223,7 +300,7 @@ export default class BookShelfPlugin extends Plugin {
         // 手动添加书籍
         this.addCommand({
             id: 'add-book-manually',
-            name: '➕ 手动添加书籍',
+            name: 'Add book manually',
             callback: () => {
                 new ManualAddBookModal(this.app, this, () => {
                     const leaves = this.app.workspace.getLeavesOfType(DASHBOARD_VIEW_TYPE);

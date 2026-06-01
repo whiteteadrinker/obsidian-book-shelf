@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
+import { ItemView, Modal, Notice, WorkspaceLeaf } from 'obsidian';
 import type BookShelfPlugin from '../main';
 import type { BookMeta } from '../types';
 import { parseEpubBook } from '../reader/epubReader';
@@ -6,16 +6,6 @@ import type { EpubBook, EpubChapter } from '../reader/epubReader';
 import { loadPdfDocument, renderPdfPage, createPaginationControls, createZoomControls } from '../reader/pdfReader';
 
 export const READER_VIEW_TYPE = 'bookshelf-reader-view';
-
-interface Highlight {
-    id: string;
-    bookId: string;
-    chapterIndex: number;
-    text: string;
-    note: string;
-    color: string;
-    timestamp: string;
-}
 
 export class ReaderPanelView extends ItemView {
     plugin: BookShelfPlugin;
@@ -27,7 +17,6 @@ export class ReaderPanelView extends ItemView {
     private pdfScale: number = 1.0;
     private fontSize: number = 16;
     private theme: 'light' | 'dark' | 'sepia' = 'light';
-    private highlights: Highlight[] = [];
     private showToc: boolean = false;
     private iframeEl: HTMLIFrameElement | null = null;
 
@@ -50,8 +39,13 @@ export class ReaderPanelView extends ItemView {
 
     async onClose(): Promise<void> {
         if (this.currentBook) {
+            if (this.currentBook.format === 'pdf' && this.pdfDoc) {
+                const progress = Math.round((this.pdfCurrentPage / this.pdfDoc.numPages) * 100);
+                await this.plugin.setReadingProgress(this.currentBook.id, progress, this.pdfCurrentPage);
+                return;
+            }
             const totalChapters = this.epubBook?.chapters.length || 1;
-            const progress = Math.round((this.currentChapterIndex / totalChapters) * 100);
+            const progress = Math.round(((this.currentChapterIndex + 1) / totalChapters) * 100);
             await this.plugin.setReadingProgress(this.currentBook.id, progress, this.currentChapterIndex);
         }
     }
@@ -196,7 +190,7 @@ export class ReaderPanelView extends ItemView {
                 this.renderChapter();
             });
         } else if (isPdf && this.pdfDoc) {
-            createZoomControls(toolbar, this.pdfScale, (s) => { this.pdfScale = s; this.renderPdfPage(); });
+            createZoomControls(toolbar, this.pdfScale, (s) => { this.pdfScale = s; this.render(); });
             toolbar.createEl('span', {
                 text: `📄 ${this.pdfCurrentPage} / ${this.pdfDoc.numPages}`,
                 attr: { style: 'font-size:13px;margin:0 8px;' },
@@ -204,6 +198,10 @@ export class ReaderPanelView extends ItemView {
         }
 
         toolbar.createEl('span', { attr: { style: 'flex:1;' } });
+        const excerptBtn = toolbar.createEl('button', { text: '摘录' });
+        excerptBtn.addEventListener('click', () => this.saveCurrentSelection(false));
+        const noteBtn = toolbar.createEl('button', { text: '批注' });
+        noteBtn.addEventListener('click', () => this.saveCurrentSelection(true));
         const closeBtn = toolbar.createEl('button', { text: '✕' });
         closeBtn.addEventListener('click', () => this.leaf.detach());
     }
@@ -255,7 +253,7 @@ export class ReaderPanelView extends ItemView {
         const docHtml = this.buildIframeDoc(chapter);
         const iframe = contentDiv.createEl('iframe');
         iframe.style.cssText = 'width:100%;height:100%;border:none;';
-        iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.setAttribute('sandbox', 'allow-same-origin');
         iframe.srcdoc = docHtml;
 
         this.iframeEl = iframe;
@@ -282,7 +280,11 @@ export class ReaderPanelView extends ItemView {
         const allCss = [
             this.epubBook?.globalCss || '',
             ...chapter.css,
-        ].join('\n');
+        ].join('\n')
+            .replace(/@import[^;]+;/gi, '')
+            .replace(/url\((['"]?)https?:\/\/[^)]+\1\)/gi, 'none')
+            .replace(/<\/style/gi, '<\\/style');
+        const bodyHtml = sanitizeEpubHtml(chapter.bodyHtml);
 
         return `<!DOCTYPE html>
 <html>
@@ -319,7 +321,7 @@ export class ReaderPanelView extends ItemView {
 </style>
 </head>
 <body>
-${chapter.bodyHtml}
+${bodyHtml}
 </body>
 </html>`;
     }
@@ -373,8 +375,8 @@ ${chapter.bodyHtml}
 
         createPaginationControls(contentDiv, this.pdfCurrentPage, this.pdfDoc.numPages, (page) => {
             this.pdfCurrentPage = page;
-            this.renderPdfPage();
             this.updatePdfProgress();
+            this.render();
         });
 
         const pageContainer = contentDiv.createDiv('bookshelf-pdf-page-container');
@@ -383,8 +385,8 @@ ${chapter.bodyHtml}
 
         createPaginationControls(contentDiv, this.pdfCurrentPage, this.pdfDoc.numPages, (page) => {
             this.pdfCurrentPage = page;
-            this.renderPdfPage(pageContainer);
             this.updatePdfProgress();
+            this.render();
         });
     }
 
@@ -417,5 +419,125 @@ ${chapter.bodyHtml}
         this.plugin.setReadingProgress(this.currentBook.id, progress, chapter.index);
     }
 
-    getHighlights(): Highlight[] { return [...this.highlights]; }
+    private async saveCurrentSelection(askForNote: boolean): Promise<void> {
+        if (!this.currentBook) return;
+
+        const text = this.getSelectedText().replace(/\s+/g, ' ').trim();
+        if (!text) {
+            new Notice('请先选中要保存的文字');
+            return;
+        }
+
+        const note = askForNote
+            ? await new Promise<string | null>(resolve => new AnnotationNoteModal(this.plugin, text, resolve).open())
+            : '';
+        if (note === null) return;
+
+        const annotation = await this.plugin.addAnnotation({
+            bookId: this.currentBook.id,
+            format: this.currentBook.format,
+            text,
+            note,
+            location: this.getCurrentLocation(),
+            color: 'yellow',
+        });
+
+        if (annotation) {
+            this.clearSelection();
+            new Notice(note ? '批注已同步到读书笔记' : '摘录已同步到读书笔记');
+        }
+    }
+
+    private getSelectedText(): string {
+        if (this.currentBook?.format === 'epub' && this.iframeEl?.contentWindow) {
+            try {
+                return this.iframeEl.contentWindow.getSelection()?.toString() || '';
+            } catch {
+                return '';
+            }
+        }
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return '';
+        const anchor = selection.anchorNode;
+        if (anchor && !this.containerEl.contains(anchor)) return '';
+        return selection.toString();
+    }
+
+    private clearSelection(): void {
+        if (this.currentBook?.format === 'epub' && this.iframeEl?.contentWindow) {
+            try {
+                this.iframeEl.contentWindow.getSelection()?.removeAllRanges();
+            } catch {
+                // ignored
+            }
+            return;
+        }
+        window.getSelection()?.removeAllRanges();
+    }
+
+    private getCurrentLocation(): string {
+        if (this.currentBook?.format === 'pdf') {
+            return `第 ${this.pdfCurrentPage} 页`;
+        }
+        const chapter = this.epubBook?.chapters[this.currentChapterIndex];
+        return chapter?.title || `第 ${this.currentChapterIndex + 1} 章`;
+    }
+}
+
+class AnnotationNoteModal extends Modal {
+    private selectedText: string;
+    private onSubmit: (note: string | null) => void;
+    private submitted = false;
+
+    constructor(plugin: BookShelfPlugin, selectedText: string, onSubmit: (note: string | null) => void) {
+        super(plugin.app);
+        this.selectedText = selectedText;
+        this.onSubmit = onSubmit;
+    }
+
+    onOpen(): void {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl('h2', { text: '添加批注' });
+        contentEl.createDiv({ cls: 'bookshelf-selection-preview', text: this.selectedText });
+        const textarea = contentEl.createEl('textarea', {
+            attr: { rows: '5', placeholder: '写下你的想法...' },
+        });
+        textarea.addClass('bookshelf-annotation-note');
+
+        const buttons = contentEl.createDiv('bookshelf-modal-actions');
+        buttons.createEl('button', { text: '取消' }).addEventListener('click', () => {
+            this.submitted = true;
+            this.onSubmit(null);
+            this.close();
+        });
+        buttons.createEl('button', { text: '保存批注', cls: 'mod-cta' }).addEventListener('click', () => {
+            this.submitted = true;
+            this.onSubmit(textarea.value.trim());
+            this.close();
+        });
+        textarea.focus();
+    }
+
+    onClose(): void {
+        if (!this.submitted) {
+            this.onSubmit(null);
+        }
+        this.contentEl.empty();
+    }
+}
+
+function sanitizeEpubHtml(html: string): string {
+    return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<(iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/\s+on[a-z]+\s*=\s*"[^"]*"/gi, '')
+        .replace(/\s+on[a-z]+\s*=\s*'[^']*'/gi, '')
+        .replace(/\s+on[a-z]+\s*=\s*[^\s>]+/gi, '')
+        .replace(/\s(srcdoc)\s*=\s*"[^"]*"/gi, '')
+        .replace(/\s(srcdoc)\s*=\s*'[^']*'/gi, '')
+        .replace(/\s(src)\s*=\s*"https?:\/\/[^"]*"/gi, ' $1=""')
+        .replace(/\s(src)\s*=\s*'https?:\/\/[^']*'/gi, " $1=''")
+        .replace(/\s(href|src)\s*=\s*"javascript:[^"]*"/gi, ' $1="#"')
+        .replace(/\s(href|src)\s*=\s*'javascript:[^']*'/gi, " $1='#'");
 }

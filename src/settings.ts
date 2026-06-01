@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type BookShelfPlugin from './main';
-import type { BookShelfSettings } from './types';
+import type { BookShelfSettings, BookshelfViewMode } from './types';
 
 export class BookShelfSettingTab extends PluginSettingTab {
     plugin: BookShelfPlugin;
@@ -14,7 +14,7 @@ export class BookShelfSettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        containerEl.createEl('h2', { text: '📚 BookShelf 设置' });
+        containerEl.createEl('h2', { text: '📚 BookShelf Reader 设置' });
 
         // === 书籍扫描 ===
         containerEl.createEl('h3', { text: '📂 书籍扫描' });
@@ -113,18 +113,19 @@ export class BookShelfSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // === 默认视图 ===
-        containerEl.createEl('h3', { text: '🏠 默认视图' });
+        // === 书库视图 ===
+        containerEl.createEl('h3', { text: '🏠 书库视图' });
 
         new Setting(containerEl)
-            .setName('默认打开视图')
-            .setDesc('插件启动时默认显示哪个视图')
+            .setName('默认书库视图')
+            .setDesc('打开书库时默认使用的显示方式')
             .addDropdown(dropdown => dropdown
-                .addOption('dashboard', '📊 仪表盘')
-                .addOption('sidebar', '📚 书库列表')
-                .setValue(this.plugin.settings.defaultView)
+                .addOption('kanban', '📋 看板')
+                .addOption('list', '📋 列表')
+                .addOption('grid', '▦ 网格')
+                .setValue(this.plugin.settings.defaultViewMode)
                 .onChange(async (value) => {
-                    this.plugin.settings.defaultView = value as BookShelfSettings['defaultView'];
+                    this.plugin.settings.defaultViewMode = value as BookshelfViewMode;
                     await this.plugin.saveSettings();
                 }));
     }

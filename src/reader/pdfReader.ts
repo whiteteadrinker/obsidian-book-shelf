@@ -21,13 +21,10 @@ export interface PdfReaderState {
 export async function loadPdfDocument(buffer: ArrayBuffer): Promise<any> {
     const pdfjsLib = await import('pdfjs-dist');
 
-    // 配置 worker
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+    const loadingTask = pdfjsLib.getDocument({
+        data: new Uint8Array(buffer),
+        disableWorker: true,
+    } as any);
     const pdfDoc = await loadingTask.promise;
     return pdfDoc;
 }

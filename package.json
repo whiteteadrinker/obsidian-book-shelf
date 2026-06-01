@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-book-shelf",
+  "name": "bookshelf-reader",
   "version": "1.0.0",
-  "description": "An Obsidian plugin for managing your personal book library - read EPUB/PDF, take notes, and track reading progress.",
+  "description": "A desktop Obsidian plugin for managing EPUB/PDF books, tracking reading progress, and syncing excerpts to notes.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -9,7 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "keywords": ["obsidian", "plugin", "book", "library", "epub", "pdf", "reading"],
-  "author": "",
+  "author": "whiteteadrinker",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.10.0",

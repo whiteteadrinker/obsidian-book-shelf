@@ -4,6 +4,9 @@ export type ReadingStatus = 'unread' | 'reading' | 'finished';
 /** 书籍格式 */
 export type BookFormat = 'epub' | 'pdf' | 'manual';
 
+/** 书库视图模式 */
+export type BookshelfViewMode = 'kanban' | 'list' | 'grid';
+
 /** 书籍元数据 */
 export interface BookMeta {
     /** 唯一标识 */
@@ -44,6 +47,26 @@ export interface BookMeta {
     notePath: string;
 }
 
+/** 摘录/批注数据 */
+export interface BookAnnotation {
+    /** 唯一标识 */
+    id: string;
+    /** 所属书籍 ID */
+    bookId: string;
+    /** 书籍格式 */
+    format: BookFormat;
+    /** 原文摘录 */
+    text: string;
+    /** 用户批注 */
+    note: string;
+    /** EPUB 章节标题或 PDF 页码 */
+    location: string;
+    /** 标注颜色，首版仅用于数据兼容 */
+    color: string;
+    /** 创建时间 (ISO string) */
+    createdAt: string;
+}
+
 /** 插件设置 */
 export interface BookShelfSettings {
     /** 书籍文件扫描目录（相对于 vault 根目录） */
@@ -56,8 +79,8 @@ export interface BookShelfSettings {
     lookupTimeout: number;
     /** 启动时自动扫描 */
     autoScanOnStartup: boolean;
-    /** 默认视图：dashboard | sidebar */
-    defaultView: 'dashboard' | 'sidebar';
+    /** 书库默认视图模式 */
+    defaultViewMode: BookshelfViewMode;
     /** 笔记模板 */
     noteTemplate: string;
     /** EPUB 阅读器字体大小 */
@@ -70,6 +93,7 @@ export interface BookShelfSettings {
 export interface BookShelfPluginData {
     settings: BookShelfSettings;
     books: BookMeta[];
+    annotations: BookAnnotation[];
 }
 
 /** 默认设置 */
@@ -79,7 +103,7 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
     enableOnlineLookup: true,
     lookupTimeout: 10000,
     autoScanOnStartup: true,
-    defaultView: 'dashboard',
+    defaultViewMode: 'kanban',
     noteTemplate: `---
 title: "{{title}}"
 author: "{{author}}"
@@ -112,9 +136,9 @@ finished: "{{dateFinished}}"
 
 ---
 
-## 📌 摘录与标注
+## 📌 摘录与批注
 
-> 阅读时的高亮和批注会自动添加到这里。
+> 阅读时保存的摘录和批注会自动添加到这里。
 
 ---
 

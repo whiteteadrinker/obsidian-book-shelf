@@ -1,11 +1,11 @@
-import { ItemView, WorkspaceLeaf, Menu, Modal, Setting, Notice } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Menu, Modal, Notice } from 'obsidian';
 import type BookShelfPlugin from '../main';
-import type { BookMeta, ReadingStatus } from '../types';
+import type { BookMeta, BookshelfViewMode, ReadingStatus } from '../types';
 import { generateId } from '../utils/fileUtils';
 
 export const DASHBOARD_VIEW_TYPE = 'bookshelf-dashboard-view';
 
-type ViewMode = 'kanban' | 'list' | 'grid';
+type ViewMode = BookshelfViewMode;
 type FilterStatus = 'all' | ReadingStatus;
 type SortField = 'dateAdded' | 'title' | 'author';
 
@@ -25,6 +25,7 @@ export class DashboardView extends ItemView {
     constructor(leaf: WorkspaceLeaf, plugin: BookShelfPlugin) {
         super(leaf);
         this.plugin = plugin;
+        this.viewMode = plugin.settings.defaultViewMode;
     }
 
     getViewType(): string { return DASHBOARD_VIEW_TYPE; }
@@ -249,15 +250,19 @@ export class DashboardView extends ItemView {
         });
 
         // Click → open reader
-        card.addEventListener('click', (e) => {
+        card.addEventListener('click', async (e) => {
             if (e.button !== 0) return;
             if (book.readingStatus === 'unread') {
-                this.plugin.setReadingStatus(book.id, 'reading');
+                await this.plugin.setReadingStatus(book.id, 'reading');
             }
             if (book.format !== 'manual' && book.filePath) {
                 this.plugin.openReader(book);
-            } else if (book.notePath) {
-                this.plugin.app.workspace.openLinkText(book.notePath, '', false);
+            } else {
+                const notePath = await this.plugin.ensureBookHasNote(book.id);
+                if (notePath) {
+                    this.plugin.app.workspace.openLinkText(notePath, '', false);
+                    this.render();
+                }
             }
         });
     }
@@ -411,7 +416,7 @@ export class ManualAddBookModal extends Modal {
                 format: 'manual',
                 filePath: '',
                 readingStatus: statusSelect.value as ReadingStatus,
-                readingProgress: 0,
+                readingProgress: statusSelect.value === 'finished' ? 100 : 0,
                 currentPosition: 0,
                 dateAdded: new Date().toISOString(),
                 dateFinished: statusSelect.value === 'finished' ? new Date().toISOString() : '',
@@ -421,6 +426,10 @@ export class ManualAddBookModal extends Modal {
             };
 
             await this.plugin.addBook(book);
+            const notePath = await this.plugin.ensureBookHasNote(book.id);
+            if (notePath) {
+                await this.plugin.updateBook(book.id, { notePath });
+            }
             new Notice(`已添加《${book.title}》`);
             this.close();
             this.onComplete();

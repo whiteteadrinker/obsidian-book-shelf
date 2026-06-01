@@ -11,13 +11,10 @@ export async function extractPdfMeta(
     try {
         // 动态导入 pdfjs-dist
         const pdfjsLib = await import('pdfjs-dist');
-        // pdf.js worker 配置（在浏览器环境中使用默认 worker）
-        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc =
-                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        }
-
-        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+        const loadingTask = pdfjsLib.getDocument({
+            data: new Uint8Array(buffer),
+            disableWorker: true,
+        } as any);
         const pdfDoc = await loadingTask.promise;
 
         // 获取文档元数据

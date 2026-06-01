@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-book-shelf",
-  "name": "BookShelf",
-  "version": "1.0.1",
+  "id": "bookshelf-reader",
+  "name": "BookShelf Reader",
+  "version": "1.0.0",
   "minAppVersion": "1.4.0",
-  "description": "A personal book library manager for Obsidian. Read EPUB/PDF with built-in reader, auto-extract metadata, track reading progress with Kanban dashboard, and take linked notes.",
+  "description": "Manage EPUB and PDF books, track reading progress, and sync excerpts and notes into linked Markdown book notes.",
   "author": "whiteteadrinker",
   "authorUrl": "https://github.com/whiteteadrinker",
   "isDesktopOnly": true
